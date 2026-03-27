@@ -1,0 +1,53 @@
+{
+  "name": "reviewroll",
+  "version": "1.0.0",
+  "description": "ReviewRoll — Digital Entertainment Hub for Movie Discovery & Community Engagement",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
+    "electron-start": "electron .",
+    "build": "electron-builder -w"
+  },
+  "keywords": [
+    "movies",
+    "reviews",
+    "forum",
+    "database"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "mysql2": "^3.20.0"
+  },
+  "build": {
+    "appId": "com.reviewroll.app",
+    "productName": "ReviewRoll",
+    "mac": {
+      "category": "public.app-category.entertainment"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "server/**/*",
+      "public/**/*",
+      "electron/**/*",
+      "package.json"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1"
+  }
+}
