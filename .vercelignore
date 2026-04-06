@@ -1,0 +1,7 @@
+dist/
+backend-flask/
+frontend-react/
+public/downloads/*.zip
+public/downloads/*.exe
+public/downloads/*.msi
+*.log
