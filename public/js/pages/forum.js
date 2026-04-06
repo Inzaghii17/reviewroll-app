@@ -21,6 +21,7 @@ async function renderForum(container) {
 
 const forumPage = {
   allThreads: [],
+  trendingMovieLimit: 8,
 
   async loadThreads() {
     const el = document.getElementById('forum-threads-list');
@@ -34,6 +35,16 @@ const forumPage = {
     }
   },
 
+  threadScore(t) {
+    const posts = Number(t.post_count || 0);
+    const activeUsers = Number(t.active_users || 0);
+    const recentMs = t.last_activity ? (Date.now() - new Date(t.last_activity).getTime()) : Number.POSITIVE_INFINITY;
+    const recencyBoost = Number.isFinite(recentMs)
+      ? Math.max(0, 72 - Math.floor(recentMs / (1000 * 60 * 60)))
+      : 0;
+    return (posts * 5) + (activeUsers * 2) + recencyBoost;
+  },
+
   renderList(threads) {
     const el = document.getElementById('forum-threads-list');
     if (!el) return;
@@ -42,17 +53,25 @@ const forumPage = {
       return;
     }
 
-    // Separate movie threads and genre threads, show movies first
-    const movie = threads.filter(t => t.movie_title);
-    const genre = threads.filter(t => t.Genre_name);
+    // Show only highest-signal movie discussions first, then all genre threads.
+    const movie = threads
+      .filter(t => t.movie_title)
+      .sort((a, b) => this.threadScore(b) - this.threadScore(a));
+    const genre = threads
+      .filter(t => t.Genre_name)
+      .sort((a, b) => this.threadScore(b) - this.threadScore(a));
+    const topMovie = movie.slice(0, this.trendingMovieLimit);
 
     let html = '';
-    if (movie.length) {
-      html += `<div class="section-header" style="margin-bottom:16px;"><h2 class="section-header__title" style="font-size:14px;">🎬 MOVIE DISCUSSIONS</h2><div class="section-header__line"></div></div>`;
-      html += `<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:32px;">${movie.map(t => components.threadItem(t)).join('')}</div>`;
+    if (topMovie.length) {
+      html += `<div class="section-header" style="margin-bottom:16px;"><h2 class="section-header__title" style="font-size:14px;">🎬 TRENDING MOVIE THREADS</h2><div class="section-header__line"></div></div>`;
+      html += `<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:10px;">${topMovie.map(t => components.threadItem(t)).join('')}</div>`;
+      if (movie.length > topMovie.length) {
+        html += `<p class="text-muted" style="font-size:12px;margin:0 0 26px;">Showing top ${topMovie.length} movie threads by recency and activity.</p>`;
+      }
     }
     if (genre.length) {
-      html += `<div class="section-header" style="margin-bottom:16px;"><h2 class="section-header__title" style="font-size:14px;">🏷 GENRE DISCUSSIONS</h2><div class="section-header__line"></div></div>`;
+      html += `<div class="section-header" style="margin-bottom:16px;"><h2 class="section-header__title" style="font-size:14px;">🏷 ALL GENRE THREADS</h2><div class="section-header__line"></div></div>`;
       html += `<div style="display:flex;flex-direction:column;gap:12px;">${genre.map(t => components.threadItem(t)).join('')}</div>`;
     }
     el.innerHTML = html;

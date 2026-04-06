@@ -11,22 +11,13 @@ router.post('/:movieId', authenticateToken, async (req, res) => {
     if (!rating || rating < 1 || rating > 10) {
       return res.status(400).json({ error: 'Rating must be between 1 and 10' });
     }
-    // Upsert rating
-    const [existing] = await pool.query(
-      'SELECT Rating_ID FROM Rating WHERE User_ID = ? AND Movie_ID = ?',
-      [req.user.id, movieId]
+    
+    // Atomic upsert using ON DUPLICATE KEY UPDATE to prevent race conditions
+    await pool.query(
+      'INSERT INTO Rating (Rating_value, User_ID, Movie_ID) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE Rating_value = VALUES(Rating_value)',
+      [rating, req.user.id, movieId]
     );
-    if (existing.length > 0) {
-      await pool.query(
-        'UPDATE Rating SET Rating_value = ?, Rated_at = NOW() WHERE Rating_ID = ?',
-        [rating, existing[0].Rating_ID]
-      );
-    } else {
-      await pool.query(
-        'INSERT INTO Rating (Rating_value, User_ID, Movie_ID) VALUES (?, ?, ?)',
-        [rating, req.user.id, movieId]
-      );
-    }
+    
     // Return updated average
     const [avg] = await pool.query(
       'SELECT ROUND(AVG(Rating_value), 1) AS avg_rating, COUNT(*) AS count FROM Rating WHERE Movie_ID = ?',

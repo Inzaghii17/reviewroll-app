@@ -5,7 +5,7 @@
 /* --- Hero Section --- */
 .hero {
   position: relative;
-  min-height: 85vh;
+  min-height: 92vh;
   display: flex;
   align-items: flex-end;
   overflow: hidden;
@@ -43,6 +43,88 @@
   right: 0;
   bottom: 0;
   background: linear-gradient(180deg, rgba(10,10,10,0.3) 0%, rgba(10,10,10,0.7) 60%, var(--bg-body) 100%);
+}
+.hero__fx-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.85) 45%, #000 100%);
+  opacity: 0.35;
+}
+.hero__fx-orb {
+  position: absolute;
+  width: 380px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  filter: blur(45px);
+  z-index: 1;
+  opacity: 0.28;
+  animation: heroDrift 10s ease-in-out infinite alternate;
+}
+.hero__fx-orb--one {
+  left: -10%;
+  top: 18%;
+  background: rgba(255, 107, 44, 0.65);
+}
+.hero__fx-orb--two {
+  right: -8%;
+  top: 10%;
+  background: rgba(117, 139, 253, 0.58);
+  animation-delay: -2.5s;
+}
+.hero__reel-wrap {
+  position: absolute;
+  right: clamp(20px, 4vw, 66px);
+  top: 18%;
+  z-index: 2;
+  width: min(40vw, 430px);
+  height: 300px;
+  pointer-events: none;
+  perspective: 1200px;
+}
+.hero__reel {
+  position: absolute;
+  width: clamp(90px, 10vw, 140px);
+  aspect-ratio: 2 / 3;
+  border-radius: 14px;
+  background: rgba(15, 15, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.45);
+}
+.hero__reel img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hero__reel span {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 30px;
+}
+.hero__reel--1 {
+  left: 0;
+  top: 74px;
+  transform: rotateY(24deg) rotateX(6deg);
+  animation: reelFloatOne 7s ease-in-out infinite;
+}
+.hero__reel--2 {
+  left: 115px;
+  top: 16px;
+  transform: rotateY(2deg) rotateX(3deg);
+  z-index: 2;
+  animation: reelFloatTwo 7s ease-in-out infinite;
+}
+.hero__reel--3 {
+  left: 230px;
+  top: 84px;
+  transform: rotateY(-22deg) rotateX(5deg);
+  animation: reelFloatThree 7s ease-in-out infinite;
 }
 .hero__content {
   position: relative;
@@ -95,6 +177,36 @@
   display: flex;
   gap: var(--space-2);
 }
+.hero__metrics {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.hero__metric {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(13, 11, 24, 0.62);
+  backdrop-filter: blur(7px);
+  border-radius: 999px;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero__metric span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.hero__metric strong {
+  font-size: 12px;
+  color: #fff;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .hero__dots {
   position: absolute;
   bottom: var(--space-5);
@@ -118,8 +230,42 @@
 }
 
 @media (max-width: 768px) {
-  .hero { min-height: 70vh; }
+  .hero { min-height: 80vh; }
   .hero__title { font-size: 36px; }
+  .hero__reel-wrap {
+    width: 100%;
+    right: 0;
+    left: 0;
+    top: auto;
+    bottom: 18%;
+    height: 120px;
+  }
+  .hero__reel {
+    width: 78px;
+    border-radius: 10px;
+  }
+  .hero__reel--1 { left: 12%; top: 28px; }
+  .hero__reel--2 { left: calc(50% - 39px); top: 4px; }
+  .hero__reel--3 { right: 12%; left: auto; top: 28px; }
+  .hero__metrics { gap: 8px; }
+  .hero__metric { padding: 5px 10px; }
+}
+
+@keyframes heroDrift {
+  0% { transform: translateY(0px); }
+  100% { transform: translateY(-28px); }
+}
+@keyframes reelFloatOne {
+  0%, 100% { transform: rotateY(24deg) rotateX(6deg) translateY(0); }
+  50% { transform: rotateY(16deg) rotateX(3deg) translateY(-12px); }
+}
+@keyframes reelFloatTwo {
+  0%, 100% { transform: rotateY(2deg) rotateX(3deg) translateY(0); }
+  50% { transform: rotateY(-4deg) rotateX(1deg) translateY(-16px); }
+}
+@keyframes reelFloatThree {
+  0%, 100% { transform: rotateY(-22deg) rotateX(5deg) translateY(0); }
+  50% { transform: rotateY(-14deg) rotateX(2deg) translateY(-12px); }
 }
 
 /* --- Page Container --- */
@@ -370,6 +516,24 @@
 }
 .watchlist-section {
   margin-bottom: var(--space-5);
+}
+
+.community-pulse .hscroll {
+  padding-bottom: 14px;
+}
+.community-pulse__item {
+  min-width: 350px;
+  width: 350px;
+}
+.community-pulse .thread-item {
+  min-height: 126px;
+  align-items: stretch;
+}
+@media (max-width: 768px) {
+  .community-pulse__item {
+    min-width: 290px;
+    width: 290px;
+  }
 }
 
 /* --- Movies Grid Page --- */
@@ -810,6 +974,16 @@
   border: 1px solid var(--border-color);
 }
 .thread-item__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thread-item__thumb--genre {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(39, 24, 126, 0.7), rgba(10, 7, 26, 0.95));
+}
+.thread-item__thumb--genre span {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  color: rgba(247, 247, 255, 0.78);
+}
 .thread-item__body { flex: 1; min-width: 0; }
 .thread-item__header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
 .thread-item__title { font-weight: 700; font-size: 15px; flex: 1; }

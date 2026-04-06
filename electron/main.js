@@ -1,9 +1,61 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 
 let mainWindow;
 let serverProcess;
+
+function getConfiguredWebUrl() {
+  const fromEnv = process.env.REVIEWROLL_WEB_URL;
+  if (fromEnv) return fromEnv;
+
+  const configPath = path.join(__dirname, 'build-config.json');
+  if (!fs.existsSync(configPath)) return null;
+
+  try {
+    const raw = fs.readFileSync(configPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.webUrl === 'string' && parsed.webUrl.trim()) {
+      return parsed.webUrl.trim();
+    }
+  } catch (err) {
+    console.error('Failed to read desktop build config:', err);
+  }
+
+  return null;
+}
+
+function loadHostedApp(webUrl) {
+  mainWindow.loadURL(webUrl).catch(err => {
+    console.error('Failed to load hosted URL:', err);
+  });
+}
+
+function startLocalServerAndLoad() {
+  const serverPath = path.join(__dirname, '..', 'server', 'server.js');
+  serverProcess = spawn('node', [serverPath], {
+    env: { ...process.env, PORT: 3000 }
+  });
+
+  let loaded = false;
+
+  serverProcess.stdout.on('data', (data) => {
+    console.log(`Server: ${data}`);
+    if (!loaded) {
+      setTimeout(() => {
+        mainWindow.loadURL('http://localhost:3000').catch(err => {
+          console.error('Failed to load local URL:', err);
+        });
+        loaded = true;
+      }, 1000);
+    }
+  });
+
+  serverProcess.stderr.on('data', (data) => {
+    console.error(`Server Error: ${data}`);
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -22,29 +74,13 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // Start the Express server
-  const serverPath = path.join(__dirname, '..', 'server', 'server.js');
-  serverProcess = spawn('node', [serverPath], {
-    env: { ...process.env, PORT: 3000 }
-  });
-
-  let loaded = false;
-
-  serverProcess.stdout.on('data', (data) => {
-    console.log(`Server: ${data}`);
-    if (!loaded) {
-      setTimeout(() => {
-        mainWindow.loadURL('http://localhost:3000').catch(err => {
-          console.error("Failed to load URL:", err);
-        });
-        loaded = true;
-      }, 1000); // Give it a second to bind
-    }
-  });
-
-  serverProcess.stderr.on('data', (data) => {
-    console.error(`Server Error: ${data}`);
-  });
+  const hostedWebUrl = getConfiguredWebUrl();
+  if (hostedWebUrl) {
+    console.log(`Loading hosted ReviewRoll app: ${hostedWebUrl}`);
+    loadHostedApp(hostedWebUrl);
+  } else {
+    startLocalServerAndLoad();
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;

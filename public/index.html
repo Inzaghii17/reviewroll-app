@@ -11,12 +11,33 @@
   <link rel="stylesheet" href="/css/index.css">
   <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/css/pages.css">
+  <link rel="stylesheet" href="/css/streaming.css">
 </head>
 <body>
+  <div id="intro-overlay" class="intro-overlay" aria-hidden="true">
+    <div class="intro-scene">
+      <div class="intro-scene__glow intro-scene__glow--a"></div>
+      <div class="intro-scene__glow intro-scene__glow--b"></div>
+      <div class="intro-scene__stage">
+        <div class="intro-reel intro-reel--one"></div>
+        <div class="intro-reel intro-reel--two"></div>
+        <div class="intro-reel intro-reel--three"></div>
+      </div>
+      <div class="intro-copy">
+        <p class="intro-copy__tag">ReviewRoll Presents</p>
+        <h1 class="intro-copy__title">A Cinematic Discovery Universe</h1>
+        <p class="intro-copy__sub">Movie worlds, community pulse, and high-energy discussion in one place.</p>
+        <button class="btn btn--primary btn--sm" id="intro-skip-btn">ENTER EXPERIENCE</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Data Integrity Loader -->
   <div id="integrity-loader" class="loader">
     <div class="loader__bar"></div>
   </div>
+
+  <div id="app-popup-host" class="app-popup-host" aria-live="polite"></div>
 
   <!-- Navigation -->
   <nav id="main-nav" class="navbar">
@@ -85,7 +106,8 @@
         <a href="#/movies">Movies</a>
         <a href="#/forum">Forum</a>
         <a href="#/dashboard">Dashboard</a>
-        <a href="/dist/ReviewRoll_App.zip" download style="color:var(--brand-main);font-weight:600;">Download Desktop App (.zip)</a>
+        <a href="/dist/ReviewRoll-1.0.0-x64.zip" download style="color:var(--brand-main);font-weight:600;">Download Desktop App (.zip)</a>
+        <a href="/dist/ReviewRoll-1.0.0-x64.exe" download style="color:var(--brand-main);font-weight:600;">Download Desktop App (.exe)</a>
       </div>
       <p class="footer__copy">&copy; 2026 ReviewRoll. All rights reserved.</p>
     </div>
@@ -94,6 +116,7 @@
   <script src="/js/api.js"></script>
   <script src="/js/router.js"></script>
   <script src="/js/components.js"></script>
+  <script src="/js/pages/streamingPlayer.js"></script>
   <script src="/js/pages/home.js"></script>
   <script src="/js/pages/movies.js"></script>
   <script src="/js/pages/movieDetail.js"></script>

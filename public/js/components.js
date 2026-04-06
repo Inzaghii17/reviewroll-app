@@ -113,7 +113,8 @@ const components = {
 
   // ─── Thread item (forum list) ─────────────────────────────────
   threadItem(thread) {
-    const title = thread.movie_title
+    const isMovieThread = !!thread.movie_title;
+    const title = isMovieThread
       ? `🎬 ${thread.movie_title}`
       : `🏷 ${thread.Genre_name} Genre`;
     const lastActivity = thread.last_activity
@@ -123,7 +124,11 @@ const components = {
 
     return `
       <div class="thread-item" onclick="location.hash='#/forum/${thread.Thread_ID}'" id="thread-${thread.Thread_ID}">
-        ${posterSrc ? `<div class="thread-item__thumb"><img src="${posterSrc}" alt="" onerror="this.parentElement.style.display='none'"></div>` : ''}
+        <div class="thread-item__thumb ${posterSrc ? '' : 'thread-item__thumb--genre'}">
+          ${posterSrc
+            ? `<img src="${posterSrc}" alt="" onerror="this.parentElement.classList.add('thread-item__thumb--genre');this.remove();">`
+            : '<span>GENRE</span>'}
+        </div>
         <div class="thread-item__body">
           <div class="thread-item__header">
             <span class="thread-item__title">${title}</span>
@@ -133,6 +138,7 @@ const components = {
             <span class="trending-badge">💬 ${thread.post_count || 0} posts</span>
             <span>👥 ${thread.active_users || 0} users</span>
             <span>🕐 ${lastActivity}</span>
+            <span>📍 ${isMovieThread ? 'Movie' : 'Genre'}</span>
           </div>
         </div>
       </div>`;
@@ -280,9 +286,10 @@ const components = {
       await api.addToWatchlist(wlId, movieId);
       const msgEl = document.getElementById('wl-modal-msg');
       if (msgEl) { msgEl.textContent = `Added to "${name}"!`; msgEl.style.display = 'block'; }
+      if (app && typeof app.showPopup === 'function') app.showPopup(`Added to "${name}"`, 'success');
       setTimeout(() => { const m = document.getElementById('wl-picker-modal'); if (m) m.remove(); }, 1500);
     } catch (e) {
-      alert(e.error || 'Already in this watchlist');
+      if (app && typeof app.showPopup === 'function') app.showPopup(e.error || 'This movie is already added to this watchlist.', 'error');
     }
   },
 
@@ -295,9 +302,10 @@ const components = {
       await api.addToWatchlist(wl.Watchlist_ID, movieId);
       const msgEl = document.getElementById('wl-modal-msg');
       if (msgEl) { msgEl.textContent = `Created and added to "${name}"!`; msgEl.style.display = 'block'; }
+      if (app && typeof app.showPopup === 'function') app.showPopup(`Created "${name}" and added movie`, 'success');
       setTimeout(() => { const m = document.getElementById('wl-picker-modal'); if (m) m.remove(); }, 1500);
     } catch (e) {
-      alert(e.error || 'Failed to create watchlist');
+      if (app && typeof app.showPopup === 'function') app.showPopup(e.error || 'Failed to create watchlist', 'error');
     }
   },
 

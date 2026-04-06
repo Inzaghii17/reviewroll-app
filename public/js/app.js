@@ -2,7 +2,7 @@
 const app = {
   authMode: 'login',
 
-  init() {
+  async init() {
     // Setup routes
     router.add('/', renderHome);
     router.add('/movies', renderMovies);
@@ -26,8 +26,50 @@ const app = {
       });
     }
 
-    // Start router
+    // Show cinematic intro once per tab session, then start the app router.
+    await this.initIntroExperience();
     router.init();
+  },
+
+  initIntroExperience() {
+    const intro = document.getElementById('intro-overlay');
+    if (!intro) return Promise.resolve();
+
+    if (sessionStorage.getItem('rr_intro_seen') === '1') {
+      intro.remove();
+      return Promise.resolve();
+    }
+
+    document.body.classList.add('intro-active');
+
+    return new Promise(resolve => {
+      const finish = () => {
+        if (intro.classList.contains('out')) return;
+        intro.classList.add('out');
+        document.body.classList.remove('intro-active');
+        sessionStorage.setItem('rr_intro_seen', '1');
+        setTimeout(() => {
+          intro.remove();
+          resolve();
+        }, 900);
+      };
+
+      document.getElementById('intro-skip-btn')?.addEventListener('click', finish, { once: true });
+      setTimeout(finish, 4600);
+    });
+  },
+
+  showPopup(message, type = 'error') {
+    const host = document.getElementById('app-popup-host');
+    if (!host || !message) return;
+
+    const popup = document.createElement('div');
+    popup.className = `app-popup app-popup--${type}`;
+    popup.innerHTML = `<strong>${type === 'success' ? 'Success' : 'Notice'}</strong><span>${components.escapeHtml(String(message))}</span>`;
+    host.appendChild(popup);
+
+    setTimeout(() => popup.classList.add('out'), 2600);
+    setTimeout(() => popup.remove(), 3200);
   },
 
   updateAuthUI() {

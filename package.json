@@ -7,7 +7,13 @@
     "start": "node server/server.js",
     "dev": "node server/server.js",
     "electron-start": "electron .",
-    "build": "electron-builder -w"
+    "build": "electron-builder -w",
+    "desktop:configure:web": "node scripts/set-desktop-web-url.js",
+    "desktop:publish-zip": "node scripts/publish-desktop-zip.js",
+    "build:desktop": "electron-builder -w nsis portable zip",
+    "build:desktop:exe": "electron-builder -w nsis",
+    "build:desktop:portable": "electron-builder -w portable",
+    "build:desktop:zip": "electron-builder -w zip"
   },
   "keywords": [
     "movies",
@@ -30,11 +36,18 @@
   "build": {
     "appId": "com.reviewroll.app",
     "productName": "ReviewRoll",
+    "artifactName": "ReviewRoll-${version}-${arch}.${ext}",
     "mac": {
       "category": "public.app-category.entertainment"
     },
     "win": {
-      "target": "nsis"
+      "signAndEditExecutable": false,
+      "forceCodeSigning": false,
+      "target": [
+        "nsis",
+        "portable",
+        "zip"
+      ]
     },
     "directories": {
       "output": "dist"

@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
         g.Genre_name,
         COUNT(DISTINCT dp.Post_ID) AS post_count,
         COUNT(DISTINCT dp.User_ID) AS active_users,
-        MAX(dp.Created_at) AS last_activity
+        COALESCE(MAX(dp.Created_at), dt.Created_at) AS last_activity
       FROM Discussion_Thread dt
       LEFT JOIN Movie m ON dt.Movie_ID = m.Movie_ID
       LEFT JOIN Genre g ON dt.Genre_ID = g.Genre_ID
@@ -43,7 +43,8 @@ router.get('/search', async (req, res) => {
         m.Image_URL AS movie_image,
         g.Genre_name,
         COUNT(DISTINCT dp.Post_ID) AS post_count,
-        MAX(dp.Created_at) AS last_activity
+        COUNT(DISTINCT dp.User_ID) AS active_users,
+        COALESCE(MAX(dp.Created_at), dt.Created_at) AS last_activity
       FROM Discussion_Thread dt
       LEFT JOIN Movie m ON dt.Movie_ID = m.Movie_ID
       LEFT JOIN Genre g ON dt.Genre_ID = g.Genre_ID

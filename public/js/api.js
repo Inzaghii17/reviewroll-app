@@ -141,4 +141,14 @@ const api = {
   deleteUser: (id) => api.delete(`/admin/user/${id}`),
   adminDeleteThread: (threadId) => api.delete(`/admin/thread/${threadId}`),
   autoFetchMovie: (title) => api.post('/tmdb/auto-fetch', { title }),
+  getWatchProviders: (movieId, region = 'US') => api.get(`/tmdb/watch-providers/${movieId}?region=${encodeURIComponent(region)}`),
+
+  // Streaming (Community Embeds)
+  getStreamingEmbed: (movieId, options = {}) => {
+    const params = new URLSearchParams();
+    if (options.provider) params.append('provider', options.provider);
+    if (options.includeAll) params.append('includeAll', options.includeAll);
+    return api.get(`/streaming/embed/${movieId}?${params}`);
+  },
+  getStreamingInfo: (movieId, region = 'US') => api.get(`/streaming/info/${movieId}?region=${encodeURIComponent(region)}`),
 };

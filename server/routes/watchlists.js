@@ -69,16 +69,25 @@ router.post('/', authenticateToken, async (req, res) => {
 router.post('/:id/movies', authenticateToken, async (req, res) => {
   try {
     const { movieId } = req.body;
+    if (!movieId) return res.status(400).json({ error: 'Movie ID required' });
+
     const [watchlist] = await pool.query(
       'SELECT * FROM Watchlist WHERE Watchlist_ID = ? AND User_ID = ?',
       [req.params.id, req.user.id]
     );
     if (watchlist.length === 0) return res.status(404).json({ error: 'Watchlist not found' });
 
-    await pool.query(
+    // Use INSERT IGNORE to prevent race conditions - silently ignore if already exists
+    const [result] = await pool.query(
       'INSERT IGNORE INTO Watchlist_Item (Watchlist_ID, Movie_ID) VALUES (?, ?)',
       [req.params.id, movieId]
     );
+    
+    // Check if movie was actually inserted or already existed
+    if (result.affectedRows === 0) {
+      return res.status(409).json({ error: 'This movie is already added to this watchlist.' });
+    }
+
     res.json({ message: 'Movie added to watchlist' });
   } catch (err) {
     console.error(err);

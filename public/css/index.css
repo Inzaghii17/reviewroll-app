@@ -14,6 +14,7 @@
 :root {
   --brand-main: #27187E;
   --brand-main-hover: #3d29b5;
+  --brand-hot: #ff6b2c;
   --brand-glow: rgba(39, 24, 126, 0.4);
   --bg-dark: #0A071A;
   --bg-body: #05030E;
@@ -58,6 +59,7 @@
   --radius-sm: 2px;
   --radius-md: 4px;
   --radius-lg: 8px;
+  --radius: 8px;
   --radius-full: 50%;
 
   /* Transitions */
@@ -85,6 +87,7 @@ body {
   /* Global cinematic background — animated */
   background-image:
     radial-gradient(circle at 15% 50%, rgba(39, 24, 126, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 25% 18%, rgba(255, 107, 44, 0.09) 0%, transparent 35%),
     radial-gradient(circle at 85% 30%, rgba(117, 139, 253, 0.1) 0%, transparent 40%),
     radial-gradient(ellipse at 50% 100%, rgba(5, 3, 14, 0.9) 0%, transparent 70%);
   background-attachment: fixed;
@@ -95,6 +98,132 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+body.intro-active {
+  overflow: hidden;
+}
+
+/* --- Intro Overlay --- */
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 107, 44, 0.2), transparent 45%),
+    radial-gradient(circle at 70% 70%, rgba(80, 130, 255, 0.2), transparent 40%),
+    linear-gradient(130deg, #06030d, #0a0816 45%, #140c27);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+.intro-overlay.out {
+  opacity: 0;
+  transform: scale(1.03);
+  pointer-events: none;
+}
+.intro-scene {
+  position: relative;
+  width: min(980px, 92vw);
+  min-height: 520px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 8, 20, 0.72);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65), inset 0 0 80px rgba(39, 24, 126, 0.2);
+  overflow: hidden;
+  display: grid;
+  align-items: center;
+  justify-items: center;
+}
+.intro-scene__glow {
+  position: absolute;
+  width: 360px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  filter: blur(42px);
+  opacity: 0.45;
+  animation: introFloat 7s ease-in-out infinite alternate;
+}
+.intro-scene__glow--a { left: -10%; top: -15%; background: rgba(255, 107, 44, 0.55); }
+.intro-scene__glow--b { right: -8%; bottom: -18%; background: rgba(90, 127, 255, 0.45); animation-delay: -2s; }
+
+.intro-scene__stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  perspective: 1200px;
+  pointer-events: none;
+}
+.intro-reel {
+  position: absolute;
+  width: clamp(130px, 14vw, 180px);
+  aspect-ratio: 2 / 3;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 26px 45px rgba(0, 0, 0, 0.55);
+  background-size: cover;
+  background-position: center;
+  transform-style: preserve-3d;
+}
+.intro-reel--one {
+  background-image: url('https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911BTUgMe9Nh4wj.jpg');
+  transform: translate3d(-220px, 35px, -40px) rotateY(25deg) rotateX(8deg);
+  animation: introCardOne 6s ease-in-out infinite;
+}
+.intro-reel--two {
+  background-image: url('https://image.tmdb.org/t/p/w500/oYuLEt3zVCKq57qu2F8dT7NIa6f.jpg');
+  transform: translate3d(0, -40px, 70px) rotateY(-8deg) rotateX(4deg);
+  animation: introCardTwo 6s ease-in-out infinite;
+}
+.intro-reel--three {
+  background-image: url('https://image.tmdb.org/t/p/w500/kyeqWdyUXW608qlYkRqosgbbJyK.jpg');
+  transform: translate3d(220px, 30px, -25px) rotateY(-24deg) rotateX(7deg);
+  animation: introCardThree 6s ease-in-out infinite;
+}
+.intro-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 620px;
+  text-align: center;
+  padding: 32px;
+}
+.intro-copy__tag {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--brand-hot);
+  margin-bottom: 14px;
+}
+.intro-copy__title {
+  font-family: var(--font-heading);
+  font-size: clamp(28px, 4vw, 56px);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.intro-copy__sub {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 22px;
+}
+
+@keyframes introFloat {
+  0% { transform: translateY(0px) scale(1); }
+  100% { transform: translateY(-20px) scale(1.08); }
+}
+@keyframes introCardOne {
+  0%, 100% { transform: translate3d(-220px, 35px, -40px) rotateY(25deg) rotateX(8deg); }
+  50% { transform: translate3d(-210px, 8px, -5px) rotateY(15deg) rotateX(2deg); }
+}
+@keyframes introCardTwo {
+  0%, 100% { transform: translate3d(0, -40px, 70px) rotateY(-8deg) rotateX(4deg); }
+  50% { transform: translate3d(0, -66px, 95px) rotateY(2deg) rotateX(-2deg); }
+}
+@keyframes introCardThree {
+  0%, 100% { transform: translate3d(220px, 30px, -25px) rotateY(-24deg) rotateX(7deg); }
+  50% { transform: translate3d(210px, 6px, 8px) rotateY(-14deg) rotateX(2deg); }
 }
 
 @keyframes bg-shift {
@@ -167,6 +296,62 @@ h3, .h3 {
   .grid--4, .grid--3, .grid--2 {
     grid-template-columns: 1fr;
   }
+
+  .intro-scene {
+    min-height: 500px;
+  }
+  .intro-reel--one { transform: translate3d(-95px, 110px, -25px) rotateY(22deg) rotateX(3deg); }
+  .intro-reel--two { transform: translate3d(0, 72px, 35px) rotateY(-8deg); }
+  .intro-reel--three { transform: translate3d(95px, 110px, -20px) rotateY(-22deg) rotateX(3deg); }
+  .intro-copy {
+    padding: 22px;
+    margin-top: -90px;
+  }
+}
+
+/* --- Popup Toast --- */
+.app-popup-host {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 13000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.app-popup {
+  min-width: 280px;
+  max-width: 380px;
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 9, 16, 0.92);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  animation: popupIn 0.25s ease;
+}
+.app-popup strong {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+}
+.app-popup span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.app-popup--error strong { color: #ff8a8a; }
+.app-popup--success strong { color: #7dffbf; }
+.app-popup.out {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+@keyframes popupIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* --- Buttons --- */

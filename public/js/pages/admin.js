@@ -121,6 +121,10 @@ async function renderAdmin(container) {
             <div class="form-group"><label>YEAR</label><input type="number" id="approve-year" class="input" required></div>
             <div class="form-group"><label>DURATION (min)</label><input type="number" id="approve-duration" class="input" value="120" required></div>
           </div>
+          <label style="display:flex;align-items:center;gap:8px;margin:-2px 0 10px;font-size:13px;color:var(--text-secondary);cursor:pointer;">
+            <input type="checkbox" id="approve-auto-fetch" checked>
+            Auto-fetch movie details from TMDB when approving
+          </label>
           <div class="form-group"><label>DESCRIPTION</label><textarea class="textarea" id="approve-desc" style="min-height:70px;"></textarea></div>
           <div class="form-group">
             <label>POSTER IMAGE</label>
@@ -270,6 +274,7 @@ const adminPage = {
     document.getElementById('approve-desc').value = '';
     document.getElementById('approve-image-url').value = '';
     document.getElementById('approve-image-file').value = '';
+    document.getElementById('approve-auto-fetch').checked = true;
     document.getElementById('approve-image-preview').style.display = 'none';
     document.getElementById('approve-error').style.display = 'none';
     document.getElementById('approve-modal').style.display = 'flex';
@@ -299,6 +304,7 @@ const adminPage = {
     fd.append('year', document.getElementById('approve-year').value);
     fd.append('duration', document.getElementById('approve-duration').value);
     fd.append('description', document.getElementById('approve-desc').value.trim());
+    fd.append('autoFetch', document.getElementById('approve-auto-fetch').checked ? 'true' : 'false');
     const imageFile = document.getElementById('approve-image-file').files[0];
     const imageUrl = document.getElementById('approve-image-url').value.trim();
     if (imageFile) fd.append('image', imageFile);
@@ -308,7 +314,7 @@ const adminPage = {
       const result = await api.approveRequest(reqId, fd);
       this.closeApproveModal();
       document.getElementById(`req-row-${reqId}`)?.remove();
-      this.showMsg(result.message, 'success');
+      this.showMsg(`${result.message}${result.source === 'tmdb+manual' ? ' (TMDB-enhanced)' : ''}`, 'success');
       this.loadStats();
     } catch (err) {
       errEl.textContent = err.error || 'Approval failed';

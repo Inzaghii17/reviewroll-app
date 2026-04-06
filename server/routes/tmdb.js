@@ -8,6 +8,64 @@ function adminOnly(req, res, next) {
   next();
 }
 
+// Public endpoint: resolve legal watch providers for a movie using TMDB
+router.get('/watch-providers/:movieId', async (req, res) => {
+  try {
+    const TMDB_API_KEY = process.env.TMDB_API_KEY;
+    if (!TMDB_API_KEY) {
+      return res.status(500).json({ error: 'TMDB API Key missing in environment variables.' });
+    }
+
+    const region = String(req.query.region || 'US').toUpperCase();
+
+    const [[movieRow]] = await pool.query(
+      'SELECT Title, Release_year FROM Movie WHERE Movie_ID = ?',
+      [req.params.movieId]
+    );
+    if (!movieRow) return res.status(404).json({ error: 'Movie not found' });
+
+    const searchRes = await fetch(
+      `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(movieRow.Title)}&year=${encodeURIComponent(movieRow.Release_year)}&api_key=${TMDB_API_KEY}`
+    );
+    const searchData = await searchRes.json();
+    if (!searchData.results || searchData.results.length === 0) {
+      return res.status(404).json({ error: 'No TMDB match found for watch providers.' });
+    }
+
+    const tmdbId = searchData.results[0].id;
+    const providersRes = await fetch(
+      `https://api.themoviedb.org/3/movie/${tmdbId}/watch/providers?api_key=${TMDB_API_KEY}`
+    );
+    const providersData = await providersRes.json();
+
+    const regionData = providersData?.results?.[region] || null;
+    if (!regionData) {
+      return res.status(404).json({ error: `No watch provider data for region ${region}.`, tmdbId });
+    }
+
+    const normalize = (arr = []) => arr.map(p => ({
+      provider_id: p.provider_id,
+      provider_name: p.provider_name,
+      logo_path: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : null
+    }));
+
+    const result = {
+      tmdbId,
+      region,
+      link: regionData.link || null,
+      flatrate: normalize(regionData.flatrate),
+      rent: normalize(regionData.rent),
+      buy: normalize(regionData.buy),
+      free: normalize(regionData.free)
+    };
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error while fetching watch providers' });
+  }
+});
+
 router.post('/auto-fetch', authenticateToken, adminOnly, async (req, res) => {
   try {
     const { title } = req.body;

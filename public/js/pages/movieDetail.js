@@ -69,9 +69,9 @@ async function renderMovieDetail(container, params) {
           ` : !isLoggedIn ? `
             <button class="btn btn--outline btn--sm" onclick="app.showAuthModal('login')">LOGIN TO RATE</button>
           ` : ''}
-          <a href="https://www.justwatch.com/us/search?q=${encodeURIComponent(movie.Title)}" target="_blank" class="btn btn--primary btn--sm" style="display:flex;align-items:center;gap:6px;background:var(--brand-main);color:white;text-decoration:none;">
+          <button class="btn btn--primary btn--sm" style="display:flex;align-items:center;gap:6px;background:var(--brand-main);color:white;text-decoration:none;" onclick="movieDetailPage.watchNow(${movie.Movie_ID}, '${components.escapeHtml(movie.Title)}')">
             <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> WATCH NOW
-          </a>
+          </button>
           <button class="btn btn--outline btn--sm" onclick="movieDetailPage.goToDiscussion(${movie.Movie_ID})">💬 DISCUSSION</button>
         </div>
       </div>
@@ -146,6 +146,11 @@ async function renderMovieDetail(container, params) {
 const movieDetailPage = {
   _movieId: null,
   _threadLoaded: false,
+
+  async watchNow(movieId, movieTitle) {
+    // Use embedded streaming player with fallback to legal providers
+    streamingPlayer.show(movieId, movieTitle);
+  },
 
   switchTab(e, name) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));

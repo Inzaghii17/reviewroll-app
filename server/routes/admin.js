@@ -31,6 +31,43 @@ function adminOnly(req, res, next) {
   next();
 }
 
+async function fetchTmdbMovieByTitle(title) {
+  const TMDB_API_KEY = process.env.TMDB_API_KEY;
+  if (!TMDB_API_KEY) {
+    throw new Error('TMDB API Key missing in environment variables. Please add TMDB_API_KEY to your .env file.');
+  }
+
+  const searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(title)}&api_key=${TMDB_API_KEY}`);
+  const searchData = await searchRes.json();
+  if (!searchData.results || searchData.results.length === 0) {
+    throw new Error(`No movie found on TMDB for "${title}".`);
+  }
+
+  const tmdbId = searchData.results[0].id;
+  const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?append_to_response=videos&api_key=${TMDB_API_KEY}`);
+  const movieData = await detailsRes.json();
+
+  let trailerUrl = null;
+  if (movieData.videos && movieData.videos.results) {
+    const trailer = movieData.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+    if (trailer) trailerUrl = `https://www.youtube.com/embed/${trailer.key}`;
+  }
+
+  return {
+    title: movieData.title,
+    year: movieData.release_date ? parseInt(movieData.release_date.split('-')[0], 10) : null,
+    duration: movieData.runtime || null,
+    description: movieData.overview || '',
+    imageUrl: movieData.poster_path ? `https://image.tmdb.org/t/p/w500${movieData.poster_path}` : null,
+    language: movieData.original_language || 'Unknown',
+    budget: movieData.budget || 0,
+    revenue: movieData.revenue || 0,
+    release_date: movieData.release_date || null,
+    trailerUrl,
+    trivia: movieData.tagline || null
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────
 // POST /api/admin/add-movie
 // Admin directly adds a movie with genres (auto-thread via trigger)
@@ -134,32 +171,70 @@ router.get('/requests', authenticateToken, adminOnly, async (req, res) => {
 router.post('/requests/:id/approve', authenticateToken, adminOnly, upload.single('image'), async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const { title, year, duration, description, imageUrl, language, budget, revenue, release_date, trailerUrl, trivia } = req.body;
-    if (!title || !year || !duration) {
+    const { title, year, duration, description, imageUrl, language, budget, revenue, release_date, trailerUrl, trivia, autoFetch } = req.body;
+
+    const [reqRows] = await conn.query('SELECT * FROM Movie_Request WHERE Request_ID = ?', [req.params.id]);
+    if (reqRows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    let tmdbData = null;
+    if (String(autoFetch) === 'true') {
+      const lookupTitle = (title && title.trim()) || reqRows[0].Requested_title;
+      tmdbData = await fetchTmdbMovieByTitle(lookupTitle);
+    }
+
+    const finalTitle = (title && title.trim()) || tmdbData?.title || reqRows[0].Requested_title;
+    const finalYear = parseInt(year || tmdbData?.year || reqRows[0].Release_year, 10);
+    const finalDuration = parseInt(duration || tmdbData?.duration || 120, 10);
+    const finalDescription = (description || tmdbData?.description || '').trim();
+    const finalLanguage = (language || tmdbData?.language || 'Unknown').trim();
+    const finalBudget = budget ? parseInt(budget, 10) : (tmdbData?.budget || 0);
+    const finalRevenue = revenue ? parseInt(revenue, 10) : (tmdbData?.revenue || 0);
+    const finalReleaseDate = release_date || tmdbData?.release_date || null;
+    const finalTrailerUrl = trailerUrl || tmdbData?.trailerUrl || null;
+    const finalTrivia = trivia || tmdbData?.trivia || null;
+
+    if (!finalTitle || !finalYear || !finalDuration) {
       return res.status(400).json({ error: 'Title, year, and duration are required' });
     }
 
     let finalImageUrl = null;
     if (req.file) finalImageUrl = `/uploads/${req.file.filename}`;
     else if (imageUrl && imageUrl.trim()) finalImageUrl = imageUrl.trim();
+    else if (tmdbData?.imageUrl) finalImageUrl = tmdbData.imageUrl;
 
     await conn.beginTransaction();
+
+    const [[existing]] = await conn.query(
+      'SELECT Movie_ID FROM Movie WHERE LOWER(Title) = LOWER(?) AND Release_year = ?',
+      [finalTitle, finalYear]
+    );
+    if (existing) {
+      await conn.rollback();
+      return res.status(409).json({ error: `Movie "${finalTitle}" (${finalYear}) already exists in the catalog.` });
+    }
 
     const [result] = await conn.query(
       `INSERT INTO Movie (Title, Release_year, Language, Duration, Description, Image_URL, Budget, Revenue, Release_date, Trailer_URL, Trivia)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title.trim(), parseInt(year), language || 'Unknown', parseInt(duration), description || '', finalImageUrl, budget ? parseInt(budget) : 0, revenue ? parseInt(revenue) : 0, release_date || null, trailerUrl || null, trivia || null]
+      [finalTitle, finalYear, finalLanguage, finalDuration, finalDescription, finalImageUrl, finalBudget, finalRevenue, finalReleaseDate, finalTrailerUrl, finalTrivia]
     );
     const movieId = result.insertId;
 
     await conn.query('DELETE FROM Movie_Request WHERE Request_ID = ?', [req.params.id]);
     await conn.commit();
 
-    res.json({ message: `"${title}" approved and added to catalog.`, movieId, imageUrl: finalImageUrl });
+    res.json({
+      message: `"${finalTitle}" approved and added to catalog.`,
+      movieId,
+      imageUrl: finalImageUrl,
+      source: tmdbData ? 'tmdb+manual' : 'manual'
+    });
   } catch (err) {
     await conn.rollback();
     console.error(err);
-    res.status(500).json({ error: 'Server error during approval' });
+    res.status(500).json({ error: err.message || 'Server error during approval' });
   } finally {
     conn.release();
   }

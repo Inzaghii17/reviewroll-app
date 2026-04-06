@@ -28,17 +28,30 @@ async function renderHome(container) {
 
   const heroContent = `
     <div class="hero__content" id="hero-content">
-      <div class="hero__tag">★ FEATURED FILM</div>
+      <div class="hero__tag">FEATURED EXPERIENCE</div>
       <h1 class="hero__title" id="hero-title">${featured[0]?.Title || 'REVIEWROLL'}</h1>
-      <p class="hero__desc" id="hero-desc">${(featured[0]?.Description || 'Your Digital Entertainment Hub').substring(0, 150)}...</p>
+      <p class="hero__desc" id="hero-desc">${(featured[0]?.Description || 'Your Digital Entertainment Hub').substring(0, 170)}...</p>
       <div class="hero__actions">
-        <button class="btn btn--primary" id="hero-view-btn" onclick="location.hash='#/movie/${featured[0]?.Movie_ID || 1}'">VIEW DETAILS</button>
-        <button class="btn btn--outline" onclick="location.hash='#/movies'">BROWSE ALL</button>
+        <button class="btn btn--primary" id="hero-view-btn" onclick="location.hash='#/movie/${featured[0]?.Movie_ID || 1}'">WATCH DETAILS</button>
+        <button class="btn btn--outline" onclick="location.hash='#/movies'">EXPLORE LIBRARY</button>
+      </div>
+      <div class="hero__metrics">
+        <div class="hero__metric"><span>Live Threads</span><strong>${threads.length}</strong></div>
+        <div class="hero__metric"><span>Movies Loaded</span><strong>${movies.length}</strong></div>
+        <div class="hero__metric"><span>Top Rated</span><strong>${topRated[0]?.Title || 'N/A'}</strong></div>
       </div>
     </div>`;
 
+  const heroReels = featured.slice(0, 3).map((m, i) => {
+    const poster = components.posterUrl(m);
+    return `
+      <div class="hero__reel hero__reel--${i + 1}">
+        ${poster ? `<img src="${poster}" alt="${components.escapeHtml(m.Title)}" onerror="this.style.display='none'">` : '<span>🎬</span>'}
+      </div>`;
+  }).join('');
+
   const threadItems = threads.slice(0, 6).map(t => `
-    <div style="min-width:320px;max-width:360px;">
+    <div class="community-pulse__item">
       ${components.threadItem(t)}
     </div>
   `).join('');
@@ -46,6 +59,10 @@ async function renderHome(container) {
   container.innerHTML = `
     <div class="hero">
       <div class="hero__slider" id="hero-slider">${heroSlides}</div>
+      <div class="hero__fx-grid"></div>
+      <div class="hero__fx-orb hero__fx-orb--one"></div>
+      <div class="hero__fx-orb hero__fx-orb--two"></div>
+      <div class="hero__reel-wrap">${heroReels}</div>
       ${heroContent}
       <div class="hero__dots" id="hero-dots">${heroDots}</div>
     </div>
@@ -71,7 +88,7 @@ async function renderHome(container) {
       </div>
     </div>
 
-    <div class="section" style="background:var(--bg-dark);border-top:1px solid var(--border-color);border-bottom:1px solid var(--border-color);">
+    <div class="section community-pulse" style="background:var(--bg-dark);border-top:1px solid var(--border-color);border-bottom:1px solid var(--border-color);">
       <div class="container">
         ${components.sectionHeader('COMMUNITY PULSE', 'All Threads', '#/forum')}
         <div class="hscroll">${threadItems || '<p class="text-muted">No discussions yet.</p>'}</div>
@@ -100,7 +117,7 @@ const homePage = {
     const movie = this.featured[idx];
     if (movie) {
       document.getElementById('hero-title').textContent = movie.Title;
-      document.getElementById('hero-desc').textContent = movie.Description || '';
+      document.getElementById('hero-desc').textContent = (movie.Description || '').substring(0, 170);
       const viewBtn = document.getElementById('hero-view-btn');
       if (viewBtn) viewBtn.onclick = () => location.hash = `#/movie/${movie.Movie_ID}`;
     }
