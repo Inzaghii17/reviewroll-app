@@ -46,14 +46,31 @@ async function renderAdmin(container) {
 
         <!-- Add Movie Tab -->
         <div class="tab-content" id="tab-add-movie">
-          <div class="card" style="max-width:600px; margin-bottom: 24px; border-color: var(--brand-main);">
-            <h2 style="font-family:var(--font-heading);font-size:16px;letter-spacing:1px;margin-bottom:12px; color: var(--brand-main);">[TMDB] AUTO-FETCH MOVIE</h2>
-            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">Automatically import movie details, poster, cast, and crew from The Movie Database.</p>
-            <form id="auto-fetch-form" onsubmit="adminPage.submitAutoFetch(event)" style="display:flex; gap:12px;">
-              <input type="text" id="af-title" class="input" required placeholder="Movie Title (e.g. The Matrix)">
-              <button type="submit" class="btn btn--primary" id="af-submit-btn" style="white-space:nowrap;">AUTO FETCH</button>
+          <div class="card" style="max-width:760px; margin-bottom: 24px; border-color: var(--brand-main);">
+            <h2 style="font-family:var(--font-heading);font-size:16px;letter-spacing:1px;margin-bottom:6px; color: var(--brand-main);">[TMDB] SEARCH &amp; IMPORT MOVIE</h2>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">Search TMDB, pick the exact movie you want, then confirm to import its details, poster, cast &amp; crew.</p>
+            <form id="tmdb-search-form" onsubmit="adminPage.searchTmdb(event)" style="display:flex; gap:12px; margin-bottom:16px;">
+              <input type="text" id="af-title" class="input" required placeholder="Movie Title (e.g. The Matrix)" autocomplete="off">
+              <button type="submit" class="btn btn--primary" id="af-search-btn" style="white-space:nowrap;">🔍 SEARCH</button>
             </form>
-            <p class="form-error" id="af-error" style="display:none;margin-top:12px;"></p>
+            <p class="form-error" id="af-error" style="display:none;margin-bottom:12px;"></p>
+            <!-- Results picker -->
+            <div id="af-results" style="display:none;">
+              <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Click a movie to select it, then press <strong>Import Selected</strong>.</p>
+              <div id="af-results-grid" style="
+                display:grid;
+                grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+                gap:12px;
+                max-height:480px;
+                overflow-y:auto;
+                padding-right:4px;
+                margin-bottom:14px;
+              "></div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div id="af-selected-label" style="flex:1;font-size:13px;color:var(--text-secondary);">No movie selected.</div>
+                <button class="btn btn--primary" id="af-import-btn" onclick="adminPage.confirmFetchMovie()" disabled style="white-space:nowrap;">⬇ IMPORT SELECTED</button>
+              </div>
+            </div>
           </div>
 
           <div class="card" style="max-width:600px;">
@@ -246,24 +263,101 @@ const adminPage = {
     }
   },
 
-  async submitAutoFetch(e) {
+  _selectedTmdb: null,
+
+  async searchTmdb(e) {
     e.preventDefault();
-    const btn = document.getElementById('af-submit-btn');
-    const errEl = document.getElementById('af-error');
-    const title = document.getElementById('af-title').value.trim();
-    
-    btn.disabled = true; btn.textContent = 'FETCHING...'; errEl.style.display = 'none';
-    
+    const btn    = document.getElementById('af-search-btn');
+    const errEl  = document.getElementById('af-error');
+    const q      = document.getElementById('af-title').value.trim();
+
+    btn.disabled = true; btn.textContent = 'SEARCHING...'; errEl.style.display = 'none';
+    this._selectedTmdb = null;
+
     try {
-      const result = await api.autoFetchMovie(title);
-      this.showMsg(result.message, 'success');
-      document.getElementById('auto-fetch-form').reset();
-      this.loadStats();
+      const { results } = await api.searchTmdb(q);
+      const grid   = document.getElementById('af-results-grid');
+      const panel  = document.getElementById('af-results');
+      const label  = document.getElementById('af-selected-label');
+      const impBtn = document.getElementById('af-import-btn');
+
+      impBtn.disabled = true;
+      label.textContent = 'No movie selected.';
+
+      if (!results || results.length === 0) {
+        errEl.textContent = 'No movies found on TMDB for that title.';
+        errEl.style.display = 'block';
+        panel.style.display = 'none';
+        return;
+      }
+
+      grid.innerHTML = results.map(m => `
+        <div class="tmdb-pick-card" data-tmdb-id="${m.tmdbId}" onclick="adminPage.selectTmdbResult(this, ${m.tmdbId}, '${m.title.replace(/'/g, "\\'").replace(/"/g,'&quot;')}', '${m.year}')" style="
+          cursor:pointer;
+          border-radius:8px;
+          overflow:hidden;
+          border:2px solid var(--border-color);
+          transition:border-color .2s, transform .15s;
+          background:var(--card-bg);
+        ">
+          ${m.poster
+            ? `<img src="${m.poster}" alt="${m.title}" style="width:100%;display:block;aspect-ratio:2/3;object-fit:cover;">`
+            : `<div style="width:100%;aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--text-muted);font-size:28px;">🎬</div>`
+          }
+          <div style="padding:8px;">
+            <div style="font-size:12px;font-weight:700;line-height:1.3;color:var(--text-primary);margin-bottom:3px;">${m.title}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${m.year}${m.rating ? ' · ⭐ ' + m.rating : ''}</div>
+          </div>
+        </div>
+      `).join('');
+
+      panel.style.display = 'block';
     } catch (err) {
-      errEl.textContent = err.error || 'Failed to auto-fetch movie';
+      errEl.textContent = err.error || 'Search failed. Please try again.';
       errEl.style.display = 'block';
     } finally {
-      btn.disabled = false; btn.textContent = 'AUTO FETCH';
+      btn.disabled = false; btn.textContent = '🔍 SEARCH';
+    }
+  },
+
+  selectTmdbResult(el, tmdbId, title, year) {
+    // Deselect all
+    document.querySelectorAll('.tmdb-pick-card').forEach(c => {
+      c.style.borderColor = 'var(--border-color)';
+      c.style.transform = '';
+    });
+    // Highlight chosen
+    el.style.borderColor = 'var(--brand-main)';
+    el.style.transform = 'scale(1.03)';
+
+    this._selectedTmdb = { tmdbId, title, year };
+    const label  = document.getElementById('af-selected-label');
+    const impBtn = document.getElementById('af-import-btn');
+    label.textContent = `Selected: "${title}" (${year})`;
+    label.style.color = 'var(--brand-main)';
+    impBtn.disabled = false;
+  },
+
+  async confirmFetchMovie() {
+    if (!this._selectedTmdb) return;
+    const impBtn = document.getElementById('af-import-btn');
+    const errEl  = document.getElementById('af-error');
+    impBtn.disabled = true; impBtn.textContent = '⬇ IMPORTING...';
+    errEl.style.display = 'none';
+    try {
+      const result = await api.fetchMovieById(this._selectedTmdb.tmdbId);
+      this.showMsg(result.message, 'success');
+      // Reset picker
+      document.getElementById('tmdb-search-form').reset();
+      document.getElementById('af-results').style.display = 'none';
+      document.getElementById('af-selected-label').textContent = 'No movie selected.';
+      this._selectedTmdb = null;
+      this.loadStats();
+    } catch (err) {
+      errEl.textContent = err.error || 'Import failed. Please try again.';
+      errEl.style.display = 'block';
+    } finally {
+      impBtn.disabled = false; impBtn.textContent = '⬇ IMPORT SELECTED';
     }
   },
 

@@ -141,6 +141,8 @@ const api = {
   deleteUser: (id) => api.delete(`/admin/user/${id}`),
   adminDeleteThread: (threadId) => api.delete(`/admin/thread/${threadId}`),
   autoFetchMovie: (title) => api.post('/tmdb/auto-fetch', { title }),
+  searchTmdb: (q) => api.get(`/tmdb/search?q=${encodeURIComponent(q)}`),
+  fetchMovieById: (tmdbId) => api.post('/tmdb/fetch-by-id', { tmdbId }),
   getWatchProviders: (movieId, region = 'US') => api.get(`/tmdb/watch-providers/${movieId}?region=${encodeURIComponent(region)}`),
 
   // Streaming (Community Embeds)
