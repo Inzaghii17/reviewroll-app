@@ -80,60 +80,64 @@ async function insertMovieFromTmdb(movieData) {
 
   const conn = await pool.getConnection();
   try {
-    await conn.beginTransaction();
+    // Stringify JSON arrays for the SP
+    const genresJSON = movieData.genres && movieData.genres.length > 0
+      ? JSON.stringify(movieData.genres.map(g => g.name))
+      : null;
 
-    const [[existing]] = await conn.query(
-      'SELECT Movie_ID FROM Movie WHERE LOWER(Title) = LOWER(?) AND Release_year = ?',
-      [dbTitle, dbYear]
+    const castJSON = movieData.credits && movieData.credits.cast
+      ? JSON.stringify(movieData.credits.cast.slice(0, 12).map(c => ({
+          name: c.name,
+          profile_path: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : null,
+          character: c.character
+        })))
+      : null;
+
+    let crewJSON = null;
+    if (movieData.credits && movieData.credits.crew) {
+      const keyCrew = movieData.credits.crew.filter(c => c.job === 'Director' || c.job === 'Writer' || c.job === 'Screenplay');
+      if (keyCrew.length > 0) {
+        crewJSON = JSON.stringify(keyCrew.map(c => ({
+          name: c.name,
+          profile_path: c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : null,
+          job: c.job,
+          department: c.department
+        })));
+      }
+    }
+
+    await conn.query(
+      `CALL sp_add_tmdb_movie(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @out_movie_id, @out_error_code)`,
+      [
+        dbTitle,
+        dbYear,
+        dbLanguage,
+        dbDuration,
+        dbDescription,
+        dbImageUrl,
+        dbBudget,
+        dbRevenue,
+        dbReleaseDate,
+        dbTrailerUrl,
+        dbTrivia,
+        genresJSON,
+        castJSON,
+        crewJSON
+      ]
     );
-    if (existing) {
-      await conn.rollback();
+
+    const [[{ movieId, errorCode }]] = await conn.query('SELECT @out_movie_id AS movieId, @out_error_code AS errorCode');
+
+    if (errorCode === 409) {
       const err = new Error(`Movie "${dbTitle}" (${dbYear}) already exists in the database.`);
       err.status = 400;
       throw err;
+    } else if (errorCode !== 0) {
+      throw new Error(`Stored procedure failed with code ${errorCode}`);
     }
 
-    const [result] = await conn.query(
-      `INSERT INTO Movie (Title, Release_year, Language, Duration, Description, Image_URL, Budget, Revenue, Release_date, Trailer_URL, Trivia)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [dbTitle, dbYear, dbLanguage, dbDuration, dbDescription, dbImageUrl, dbBudget, dbRevenue, dbReleaseDate, dbTrailerUrl, dbTrivia]
-    );
-    const movieId = result.insertId;
-
-    if (movieData.genres) {
-      for (const g of movieData.genres) {
-        await conn.query('INSERT IGNORE INTO Genre (Genre_name) VALUES (?)', [g.name]);
-        const [[genreRow]] = await conn.query('SELECT Genre_ID FROM Genre WHERE Genre_name = ?', [g.name]);
-        if (genreRow) await conn.query('INSERT IGNORE INTO Movie_Genre (Movie_ID, Genre_ID) VALUES (?, ?)', [movieId, genreRow.Genre_ID]);
-      }
-    }
-
-    if (movieData.credits && movieData.credits.cast) {
-      const topCast = movieData.credits.cast.slice(0, 12);
-      for (let i = 0; i < topCast.length; i++) {
-        const c = topCast[i];
-        const profImg = c.profile_path ? `https://image.tmdb.org/t/p/w200${c.profile_path}` : null;
-        await conn.query('INSERT IGNORE INTO Person (Name, Profile_Image_URL) VALUES (?, ?)', [c.name, profImg]);
-        await conn.query('UPDATE Person SET Profile_Image_URL = ? WHERE Name = ? AND Profile_Image_URL IS NULL', [profImg, c.name]);
-        const [[personRow]] = await conn.query('SELECT Person_ID FROM Person WHERE Name = ? LIMIT 1', [c.name]);
-        if (personRow) await conn.query('INSERT IGNORE INTO Movie_Cast (Movie_ID, Person_ID, Character_name, Cast_order) VALUES (?, ?, ?, ?)', [movieId, personRow.Person_ID, c.character, i]);
-      }
-    }
-
-    if (movieData.credits && movieData.credits.crew) {
-      const keyCrew = movieData.credits.crew.filter(c => c.job === 'Director' || c.job === 'Writer' || c.job === 'Screenplay');
-      for (const d of keyCrew) {
-        const profImg = d.profile_path ? `https://image.tmdb.org/t/p/w200${d.profile_path}` : null;
-        await conn.query('INSERT IGNORE INTO Person (Name, Profile_Image_URL) VALUES (?, ?)', [d.name, profImg]);
-        const [[personRow]] = await conn.query('SELECT Person_ID FROM Person WHERE Name = ? LIMIT 1', [d.name]);
-        if (personRow) await conn.query('INSERT IGNORE INTO Movie_Crew (Movie_ID, Person_ID, Job, Department) VALUES (?, ?, ?, ?)', [movieId, personRow.Person_ID, d.job, d.department]);
-      }
-    }
-
-    await conn.commit();
     return { movieId, dbTitle };
   } catch (dbErr) {
-    await conn.rollback();
     throw dbErr;
   } finally {
     conn.release();

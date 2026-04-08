@@ -88,12 +88,15 @@ router.post('/add-movie', authenticateToken, adminOnly, upload.single('image'), 
       finalImageUrl = imageUrl.trim();
     }
 
-    await conn.beginTransaction();
+    const genreNames = genres
+      ? (Array.isArray(genres) ? genres : genres.split(','))
+          .map(g => g.trim())
+          .filter(Boolean)
+          .join(',')
+      : '';
 
-    // Insert movie — Trigger 4 auto-creates its Discussion_Thread
-    const [result] = await conn.query(
-      `INSERT INTO Movie (Title, Release_year, Language, Duration, Description, Image_URL, Budget, Revenue, Release_date, Trailer_URL, Trivia)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    await conn.query(
+      `CALL sp_add_manual_movie(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @out_movie_id, @out_error_code)`,
       [
         title.trim(),
         parseInt(year),
@@ -105,40 +108,21 @@ router.post('/add-movie', authenticateToken, adminOnly, upload.single('image'), 
         revenue ? parseInt(revenue) : 0,
         release_date || null,
         trailerUrl || null,
-        trivia || null
+        trivia || null,
+        genreNames
       ]
     );
-    const movieId = result.insertId;
 
-    // Parse and link genres
-    const genreNames = genres
-      ? (Array.isArray(genres) ? genres : genres.split(','))
-          .map(g => g.trim())
-          .filter(Boolean)
-      : [];
+    const [[{ movieId, errorCode }]] = await conn.query('SELECT @out_movie_id AS movieId, @out_error_code AS errorCode');
 
-    for (const genreName of genreNames) {
-      // Insert genre if it doesn't exist (trigger creates a thread for brand-new genres)
-      await conn.query(
-        'INSERT IGNORE INTO Genre (Genre_name) VALUES (?)',
-        [genreName]
-      );
-      const [[genre]] = await conn.query(
-        'SELECT Genre_ID FROM Genre WHERE Genre_name = ?',
-        [genreName]
-      );
-      if (genre) {
-        await conn.query(
-          'INSERT IGNORE INTO Movie_Genre (Movie_ID, Genre_ID) VALUES (?, ?)',
-          [movieId, genre.Genre_ID]
-        );
-      }
+    if (errorCode === 409) {
+      return res.status(409).json({ error: `Movie "${title}" (${year}) already exists in the catalog.` });
+    } else if (errorCode !== 0) {
+      throw new Error(`Stored procedure failed with code ${errorCode}`);
     }
 
-    await conn.commit();
     res.status(201).json({ message: `"${title}" added successfully.`, movieId });
   } catch (err) {
-    await conn.rollback();
     console.error(err);
     res.status(500).json({ error: 'Failed to add movie', details: err.message });
   } finally {
@@ -204,26 +188,31 @@ router.post('/requests/:id/approve', authenticateToken, adminOnly, upload.single
     else if (imageUrl && imageUrl.trim()) finalImageUrl = imageUrl.trim();
     else if (tmdbData?.imageUrl) finalImageUrl = tmdbData.imageUrl;
 
-    await conn.beginTransaction();
-
-    const [[existing]] = await conn.query(
-      'SELECT Movie_ID FROM Movie WHERE LOWER(Title) = LOWER(?) AND Release_year = ?',
-      [finalTitle, finalYear]
+    await conn.query(
+      `CALL sp_approve_movie_request(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @out_movie_id, @out_error_code)`,
+      [
+        req.params.id,
+        finalTitle,
+        finalYear,
+        finalLanguage,
+        finalDuration,
+        finalDescription,
+        finalImageUrl,
+        finalBudget,
+        finalRevenue,
+        finalReleaseDate,
+        finalTrailerUrl,
+        finalTrivia
+      ]
     );
-    if (existing) {
-      await conn.rollback();
+
+    const [[{ movieId, errorCode }]] = await conn.query('SELECT @out_movie_id AS movieId, @out_error_code AS errorCode');
+
+    if (errorCode === 409) {
       return res.status(409).json({ error: `Movie "${finalTitle}" (${finalYear}) already exists in the catalog.` });
+    } else if (errorCode !== 0) {
+      throw new Error(`Stored procedure failed with code ${errorCode}`);
     }
-
-    const [result] = await conn.query(
-      `INSERT INTO Movie (Title, Release_year, Language, Duration, Description, Image_URL, Budget, Revenue, Release_date, Trailer_URL, Trivia)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [finalTitle, finalYear, finalLanguage, finalDuration, finalDescription, finalImageUrl, finalBudget, finalRevenue, finalReleaseDate, finalTrailerUrl, finalTrivia]
-    );
-    const movieId = result.insertId;
-
-    await conn.query('DELETE FROM Movie_Request WHERE Request_ID = ?', [req.params.id]);
-    await conn.commit();
 
     res.json({
       message: `"${finalTitle}" approved and added to catalog.`,
@@ -232,7 +221,6 @@ router.post('/requests/:id/approve', authenticateToken, adminOnly, upload.single
       source: tmdbData ? 'tmdb+manual' : 'manual'
     });
   } catch (err) {
-    await conn.rollback();
     console.error(err);
     res.status(500).json({ error: err.message || 'Server error during approval' });
   } finally {
