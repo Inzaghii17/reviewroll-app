@@ -110,22 +110,42 @@ def add_movie_to_watchlist(watchlist_id):
 
     session = get_db_session()
     try:
+        # ── Conflicting Transaction: Concurrent Watchlist Add ─────────────────
+        # A user double-clicking "Add to Watchlist", or two open browser tabs,
+        # could fire two POST requests simultaneously. Without locking, both
+        # sessions read no existing Watchlist_Item row, then both attempt
+        # INSERT — crashing on the composite PRIMARY KEY (Watchlist_ID, Movie_ID).
+        # SELECT ... FOR UPDATE on the parent Watchlist row acts as a mutex:
+        # Session B blocks here until Session A commits. When B resumes, it
+        # re-checks Watchlist_Item, finds the row now exists, and cleanly
+        # returns 409 instead of a database error.
+        session.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'))
+        session.execute(text('START TRANSACTION'))
+
         watchlist = session.execute(
-            text('SELECT * FROM Watchlist WHERE Watchlist_ID = :watchlist_id AND User_ID = :user_id'),
+            text(
+                'SELECT * FROM Watchlist'
+                ' WHERE Watchlist_ID = :watchlist_id AND User_ID = :user_id FOR UPDATE'
+            ),
             {'watchlist_id': watchlist_id, 'user_id': user_id},
         ).mappings().first()
 
         if not watchlist:
+            session.rollback()
             return jsonify({'error': 'Watchlist not found'}), 404
 
+        # Re-check inside the lock — this is the critical read that prevents
+        # the duplicate insert under concurrent access.
         existing = session.execute(
             text(
-                'SELECT 1 FROM Watchlist_Item WHERE Watchlist_ID = :watchlist_id AND Movie_ID = :movie_id LIMIT 1'
+                'SELECT 1 FROM Watchlist_Item'
+                ' WHERE Watchlist_ID = :watchlist_id AND Movie_ID = :movie_id LIMIT 1'
             ),
             {'watchlist_id': watchlist_id, 'movie_id': movie_id},
         ).mappings().first()
 
         if existing:
+            session.rollback()
             return jsonify({'error': 'This movie is already added to this watchlist.'}), 409
 
         session.execute(
@@ -139,6 +159,7 @@ def add_movie_to_watchlist(watchlist_id):
         return jsonify({'error': 'Server error'}), 500
     finally:
         session.close()
+
 
 
 @watchlists_bp.delete('/<int:watchlist_id>/movies/<int:movie_id>')

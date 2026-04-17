@@ -28,8 +28,22 @@ def rate_movie(movie_id):
 
     session = get_db_session()
     try:
+        # ── Conflicting Transaction: Concurrent Rating Submission ─────────────
+        # Without locking, two simultaneous requests (e.g. double-click or two
+        # browser tabs) both read no existing rating, then both try to INSERT,
+        # causing a UNIQUE KEY (User_ID, Movie_ID) violation.
+        # SELECT ... FOR UPDATE acquires a write lock on the row if it exists,
+        # or a gap lock if it does not. The second concurrent session BLOCKS
+        # here until the first commits, then re-reads the correct state and
+        # takes the UPDATE path instead of INSERT — zero constraint errors.
+        session.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'))
+        session.execute(text('START TRANSACTION'))
+
         existing = session.execute(
-            text('SELECT Rating_ID FROM Rating WHERE User_ID = :user_id AND Movie_ID = :movie_id'),
+            text(
+                'SELECT Rating_ID FROM Rating'
+                ' WHERE User_ID = :user_id AND Movie_ID = :movie_id FOR UPDATE'
+            ),
             {'user_id': user_id, 'movie_id': movie_id},
         ).mappings().first()
 
@@ -56,6 +70,7 @@ def rate_movie(movie_id):
         return jsonify({'error': 'Server error'}), 500
     finally:
         session.close()
+
 
 
 @ratings_bp.get('/<int:movie_id>')

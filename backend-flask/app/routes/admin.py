@@ -94,13 +94,25 @@ def approve_request(request_id):
 
     session = get_db_session()
     try:
+        # ── Conflicting Transaction: Concurrent Request Approval ──────────────
+        # Set REPEATABLE READ isolation so our lock is honoured correctly, then
+        # immediately acquire a row-level write lock on the Movie_Request row.
+        # If two admins hit this endpoint at the same millisecond, one session
+        # acquires the lock; the other BLOCKS here until the first commits.
+        # After the lock is released the second session re-reads and finds the
+        # row gone (already approved/deleted), so it returns 404 — preventing
+        # a duplicate movie from ever being inserted.
+        session.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'))
+        session.execute(text('START TRANSACTION'))
+
         req_row = session.execute(
-            text('SELECT * FROM Movie_Request WHERE Request_ID = :request_id'),
+            text('SELECT * FROM Movie_Request WHERE Request_ID = :request_id FOR UPDATE'),
             {'request_id': request_id},
         ).mappings().first()
 
         if not req_row:
-            return jsonify({'error': 'Request not found'}), 404
+            session.rollback()
+            return jsonify({'error': 'Request not found or already approved by another admin.'}), 404
 
         tmdb_data = None
         auto_fetch = str(payload.get('autoFetch', 'false')).lower() == 'true'
@@ -121,14 +133,19 @@ def approve_request(request_id):
         final_trivia = payload.get('trivia') or (tmdb_data or {}).get('trivia')
 
         if not final_title or not final_year or not final_duration:
+            session.rollback()
             return jsonify({'error': 'Title, year, and duration are required'}), 400
 
+        # Second safety check: re-verify inside the lock that the movie was not
+        # already added by a concurrent approval of a differently-titled but
+        # same-film request.
         existing = session.execute(
             text('SELECT Movie_ID FROM Movie WHERE LOWER(Title) = LOWER(:title) AND Release_year = :year'),
             {'title': final_title, 'year': final_year},
         ).mappings().first()
 
         if existing:
+            session.rollback()
             return jsonify({'error': f'Movie "{final_title}" ({final_year}) already exists in the catalog.'}), 409
 
         insert_result = session.execute(
@@ -153,6 +170,8 @@ def approve_request(request_id):
             },
         )
 
+        # Delete the request atomically inside the same transaction so that if
+        # the INSERT somehow fails, the request row is preserved and retried.
         session.execute(
             text('DELETE FROM Movie_Request WHERE Request_ID = :request_id'),
             {'request_id': request_id},
