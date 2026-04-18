@@ -1,19 +1,11 @@
 {
   "name": "reviewroll",
   "version": "1.0.0",
-  "description": "ReviewRoll — Digital Entertainment Hub for Movie Discovery & Community Engagement",
-  "main": "electron/main.js",
+  "description": "ReviewRoll Node/Express localhost website",
+  "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "node server/server.js",
-    "electron-start": "electron .",
-    "build": "electron-builder -w",
-    "desktop:configure:web": "node scripts/set-desktop-web-url.js",
-    "desktop:publish-zip": "node scripts/publish-desktop-zip.js",
-    "build:desktop": "electron-builder -w nsis portable zip",
-    "build:desktop:exe": "electron-builder -w nsis",
-    "build:desktop:portable": "electron-builder -w portable",
-    "build:desktop:zip": "electron-builder -w zip"
+    "dev": "node server/server.js"
   },
   "keywords": [
     "movies",
@@ -32,35 +24,5 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "mysql2": "^3.20.0"
-  },
-  "build": {
-    "appId": "com.reviewroll.app",
-    "productName": "ReviewRoll",
-    "artifactName": "ReviewRoll-${version}-${arch}.${ext}",
-    "mac": {
-      "category": "public.app-category.entertainment"
-    },
-    "win": {
-      "signAndEditExecutable": false,
-      "forceCodeSigning": false,
-      "target": [
-        "nsis",
-        "portable",
-        "zip"
-      ]
-    },
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "server/**/*",
-      "public/**/*",
-      "electron/**/*",
-      "package.json"
-    ]
-  },
-  "devDependencies": {
-    "electron": "^41.0.3",
-    "electron-builder": "^26.8.1"
   }
 }

@@ -17,25 +17,6 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 // Uploaded movie images available at /uploads/*
 app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
-// Serve desktop app downloads
-app.use('/dist', express.static(path.join(__dirname, '..', 'dist')));
-
-app.get('/download/desktop', (req, res) => {
-  const configuredUrl = process.env.DESKTOP_DOWNLOAD_URL;
-  if (configuredUrl) {
-    return res.redirect(configuredUrl);
-  }
-
-  const bundledPath = path.join(__dirname, '..', 'public', 'downloads', 'ReviewRoll-latest-win.zip');
-  return res.sendFile(bundledPath, (err) => {
-    if (err) {
-      res.status(404).json({
-        error: 'Desktop build not available yet',
-        message: 'Set DESKTOP_DOWNLOAD_URL or publish a local zip to public/downloads/ReviewRoll-latest-win.zip'
-      });
-    }
-  });
-});
 
 // API Routes
 app.use('/api/auth',       require('./routes/auth'));
